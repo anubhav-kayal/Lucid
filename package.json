@@ -1,0 +1,15 @@
+{
+  "name": "lucid",
+  "version": "0.1.0",
+  "description": "A reading-simplification Chrome extension",
+  "private": true,
+  "scripts": {
+    "test": "node tests/simplification/test_entity_preservation.js && node tests/extraction/test_readability.js",
+    "test:entity": "node tests/simplification/test_entity_preservation.js",
+    "test:extraction": "node tests/extraction/test_readability.js",
+    "test:e2e": "node tests/e2e/test_reader_view.js"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}
