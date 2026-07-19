@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lucid Options</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      padding: 24px; max-width: 640px; margin: 0 auto;
+      background: #fafafa; color: #1a1a2e;
+    }
+    h1 { font-size: 24px; margin-bottom: 24px; }
+    .section { margin-bottom: 32px; }
+    .section h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; border-bottom: 1px solid #e0e0e0; padding-bottom: 8px; }
+    label { display: block; margin-bottom: 8px; font-size: 14px; }
+    input[type="text"], input[type="password"], select {
+      width: 100%; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px;
+      font-size: 14px; margin-bottom: 12px;
+    }
+    button {
+      padding: 8px 16px; border: none; border-radius: 6px;
+      font-size: 14px; font-weight: 500; cursor: pointer;
+      background: #1a1a2e; color: #fff;
+    }
+    button:hover { opacity: .85; }
+    .note { font-size: 12px; color: #888; margin-top: 4px; }
+    .indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; }
+    .indicator.off { background: #ccc; }
+    .indicator.on { background: #4caf50; }
+  </style>
+</head>
+<body>
+  <h1>Lucid Options</h1>
+
+  <div class="section">
+    <h2>AI Processing Mode</h2>
+    <label>
+      <input type="radio" name="ai-mode" value="local" checked />
+      On-device (Gemini Nano) — default, private, no data leaves your machine
+    </label>
+    <label>
+      <input type="radio" name="ai-mode" value="cloud" />
+      Cloud API key (opt-in, per-domain)
+    </label>
+  </div>
+
+  <div class="section" id="cloud-settings" style="display:none;">
+    <h2>Cloud API Key (BYOK)</h2>
+    <label for="api-provider">Provider</label>
+    <select id="api-provider">
+      <option value="anthropic">Anthropic</option>
+      <option value="openai">OpenAI</option>
+      <option value="gemini">Google Gemini</option>
+    </select>
+    <label for="api-key">API Key</label>
+    <input type="password" id="api-key" placeholder="sk-..." />
+    <p class="note">Your key is stored locally in chrome.storage.local. It is never sent anywhere except to the selected API when you explicitly simplify a page.</p>
+    <label for="domain-allowlist">Domains enabled for cloud (one per line)</label>
+    <textarea id="domain-allowlist" rows="4" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;" placeholder="example.com&#10;blog.example.org"></textarea>
+    <button id="save-options">Save Options</button>
+    <p class="note" id="save-status"></p>
+  </div>
+
+  <div class="section">
+    <h2>AI Status</h2>
+    <p><span class="indicator off" id="ai-indicator"></span> <span id="ai-status-text">Checking...</span></p>
+  </div>
+
+  <script src="options.js"></script>
+</body>
+</html>
