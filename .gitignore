@@ -1,4 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+npm-debug.log*
 .plan.md
+PHASE-0-FINDINGS.md
