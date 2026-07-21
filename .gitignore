@@ -3,4 +3,3 @@ node_modules/
 *.log
 npm-debug.log*
 .plan.md
-PHASE-0-FINDINGS.md
