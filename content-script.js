@@ -35,7 +35,9 @@ function toggleReaderView(sendResponse) {
   const article = extractArticle();
 
   if (!article || !article.content || article.length < 200) {
-    sendResponse({ active: false, error: 'not-simplifiable' });
+    renderNotSimplifiable();
+    readerViewActive = true;
+    sendResponse({ active: true, notSimplifiable: true });
     return;
   }
 
@@ -79,6 +81,34 @@ function renderReaderView(article) {
       ${article.byline ? `<p class="lucid-byline">${article.byline}</p>` : ''}
     </header>
     <div class="lucid-content">${article.content}</div>
+  `;
+
+  shadow.appendChild(container);
+}
+
+function renderNotSimplifiable() {
+  const host = document.createElement('div');
+  host.id = 'lucid-reader-host';
+  host.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:2147483647;overflow-y:auto;';
+
+  const shadow = host.attachShadow({ mode: 'closed' });
+  readerShadowRoot = shadow;
+
+  document.body.style.display = 'none';
+  document.documentElement.appendChild(host);
+
+  const styleLink = document.createElement('link');
+  styleLink.rel = 'stylesheet';
+  styleLink.href = chrome.runtime.getURL('styles/reader-view.css');
+  shadow.appendChild(styleLink);
+
+  const container = document.createElement('div');
+  container.className = 'lucid-not-simplifiable';
+  container.innerHTML = `
+    <div>
+      <p>This page cannot be simplified</p>
+      <p>Lucid works best on articles and long-form content.</p>
+    </div>
   `;
 
   shadow.appendChild(container);
