@@ -33,10 +33,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_READER_VIEW' });
       if (response?.active) {
         toggleBtn.textContent = 'Exit Reader View';
-        statusEl.textContent = 'Reader view active';
-      } else if (response?.error === 'not-simplifiable') {
-        statusEl.textContent = 'This page cannot be simplified';
-        toggleBtn.textContent = 'Open Reader View';
+        statusEl.textContent = response.notSimplifiable ? 'This page cannot be simplified' : 'Reader view active';
       } else {
         toggleBtn.textContent = 'Open Reader View';
         statusEl.textContent = 'Reader view closed';
