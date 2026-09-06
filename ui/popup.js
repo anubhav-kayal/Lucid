@@ -20,6 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     toggleBtn.disabled = false;
     statusEl.textContent = `Page: ${tab.title?.slice(0, 40) || 'unknown'}`;
+
+    try {
+      const state = await chrome.tabs.sendMessage(tab.id, { type: 'GET_READER_STATE' });
+      if (state?.active) {
+        toggleBtn.textContent = 'Exit Reader View';
+        statusEl.textContent = 'Reader view active';
+      }
+    } catch {
+      // Content scripts are unavailable on browser-internal pages.
+    }
   }
 
   toggleBtn.addEventListener('click', async () => {
@@ -30,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statusEl.textContent = 'Processing...';
 
     try {
-      const response = await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_READER_VIEW' });
+      const response = await sendToggleMessage(tab.id);
       if (response?.active) {
         toggleBtn.textContent = 'Exit Reader View';
         statusEl.textContent = response.notSimplifiable ? 'This page cannot be simplified' : 'Reader view active';
@@ -46,4 +56,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateUI();
+
+  async function sendToggleMessage(tabId) {
+    try {
+      return await chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_READER_VIEW' });
+    } catch (error) {
+      if (!error.message?.includes('Receiving end does not exist')) throw error;
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [
+          'lib/readability.js',
+          'lib/entity-preservation.js',
+          'content-script.js',
+        ],
+      });
+      return chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_READER_VIEW' });
+    }
+  }
 });

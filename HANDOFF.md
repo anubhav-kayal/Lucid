@@ -19,8 +19,8 @@ lucid/
 ├── offscreen.js           # AI session management (Gemini Nano)
 ├── content-script.js      # DOM extraction + reader view renderer
 ├── lib/
-│   ├── readability.js     # Mozilla Readability.js (stub — replace before Phase 1)
-│   └── mermaid.min.js     # Mermaid.js (stub — replace before Phase 4)
+│   ├── readability.js     # Generated Mozilla Readability.js bundle
+│   └── mermaid.min.js     # Mermaid.js placeholder (replace before Phase 4)
 ├── ui/
 │   ├── popup.html         # Popup UI
 │   ├── popup.js           # Popup logic
@@ -55,19 +55,23 @@ lucid/
 **Deliverable**: A short findings document (see `Phase-0-validation` branch).
 
 ### Phase 1 — Structure-Only Reader View (MVP)
-- Content script + Readability.js extraction
-- Gate rendering on confidence/length (article must exist + length > 200 chars)
-- Shadow-DOM-scoped reader view (CSS already scaffolded)
-- "Not simplifiable" state for non-article pages
+- [x] Content script + Readability.js extraction
+- [x] Gate rendering on confidence/length (article must exist + length > 200 chars)
+- [x] Shadow-DOM-scoped reader view
+- [x] "Not simplifiable" state for non-article pages
+- [x] Exit button, Escape-key handling, and popup state synchronization
+- [x] Responsive styling, dark-mode support, and reduced-motion support
+- [x] DOM-level integration coverage for render, exit, and extraction gate
 - Must work on 30+ diverse real-world pages
 
 ### Phase 2 — On-Device Content Simplification
-- AI availability check flow (unavailable/downloadable/available)
-- Model download UI gated on user gesture
-- Chunk paragraphs with sliding context window
-- Stream simplified paragraphs into reader view
-- Storage cache (chrome.storage.local, keyed by URL + content hash, LRU eviction)
-- Entity preservation check on all simplified output
+- [x] AI availability check flow (unavailable/downloadable/available)
+- [x] Model download UI gated on user gesture, with download progress
+- [x] Chunk paragraphs and stream simplified paragraphs into reader view
+- [x] Storage cache (chrome.storage.local, keyed by URL + content hash, LRU eviction)
+- [x] Entity preservation check on all simplified output, with visible warnings
+- [x] On-device session adapter for the `ai.languageModel` and `LanguageModel` surfaces
+- [x] Sliding two-paragraph context window and cancellation on reader exit/navigation
 
 ### Phase 3 — Reading-Level Control + BYOK
 - Reading level mapped to Rewriter tone/params or Prompt API template
