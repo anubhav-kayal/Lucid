@@ -35,13 +35,16 @@ async function testBackgroundOrchestration() {
     },
     storage: {
       local: {
-        get: async key => ({ [key]: storage[key] }),
+        get: async keys => {
+          if (!Array.isArray(keys)) return { [keys]: storage[keys] };
+          return Object.fromEntries(keys.map(key => [key, storage[key]]));
+        },
         set: async value => Object.assign(storage, value),
       },
     },
   };
 
-  const context = vm.createContext({ chrome, console, Map, Object, JSON, Date, Promise, setTimeout });
+  const context = vm.createContext({ chrome, console, Map, Object, JSON, Date, Promise, setTimeout, URL });
   vm.runInContext(fs.readFileSync('background.js', 'utf8'), context);
 
   let response;
@@ -69,11 +72,42 @@ async function testBackgroundOrchestration() {
   assert.ok(progress.some(entry => entry.message.done));
   assert.ok(storage.simplificationCache['https://example.test|hash']);
   assert.ok(offscreenMessages.some(message => message.type === 'DESTROY_AI_SESSION'));
+
+  Object.assign(storage, {
+    aiMode: 'cloud',
+    apiProvider: 'openai',
+    apiKey: 'test-key-not-logged',
+    domainAllowlist: ['*.example.com'],
+    sensitiveDomainOverrides: [],
+  });
+  let cloudConfig;
+  listeners[0](
+    { type: 'GET_PROCESSING_CONFIG' },
+    { tab: { id: 42, url: 'https://blog.example.com/article' } },
+    value => { cloudConfig = value; },
+  );
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.deepStrictEqual(
+    { mode: cloudConfig.mode, provider: cloudConfig.provider, hostname: cloudConfig.hostname },
+    { mode: 'cloud', provider: 'openai', hostname: 'blog.example.com' },
+  );
+  assert.strictEqual('apiKey' in cloudConfig, false);
+
+  storage.domainAllowlist = ['health.example.com'];
+  let blockedConfig;
+  listeners[0](
+    { type: 'GET_PROCESSING_CONFIG' },
+    { tab: { id: 42, url: 'https://health.example.com/article' } },
+    value => { blockedConfig = value; },
+  );
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.strictEqual(blockedConfig.mode, 'blocked');
+  assert.match(blockedConfig.reason, /explicitly confirm/i);
 }
 
 if (require.main === module) {
   testBackgroundOrchestration()
-    .then(() => console.log('PASS: background streams context-aware chunks and caches results'))
+    .then(() => console.log('PASS: background streams chunks, caches results, and enforces cloud-domain policy'))
     .catch(error => { console.error(error); process.exitCode = 1; });
 }
 

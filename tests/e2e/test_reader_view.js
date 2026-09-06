@@ -32,6 +32,7 @@ function loadContentScript(sourceHtml) {
         if (message.type === 'CHECK_AI_AVAILABILITY') {
           return { availability: { languageModelState: 'available', rewriterState: 'unavailable' } };
         }
+        if (message.type === 'GET_PROCESSING_CONFIG') return { mode: 'local', cacheScope: 'local' };
         if (message.type === 'SIMPLIFY_ARTICLE') return { success: true };
         if (message.type === 'CANCEL_SIMPLIFICATION') return { success: true };
         return {};
@@ -72,11 +73,34 @@ async function testReaderViewRenders() {
   assert.strictEqual(shadowRoots.length, 1);
   assert.strictEqual(shadowRoots[0].querySelector('.lucid-title').textContent, 'Source page');
   assert.ok(shadowRoots[0].querySelector('.lucid-exit'));
+  assert.strictEqual(shadowRoots[0].querySelector('.lucid-reading-level').value, 'original');
+  assert.match(shadowRoots[0].querySelector('.lucid-processing-indicator').textContent, /On-device/);
   assert.strictEqual(dom.window.document.body.style.display, 'none');
 
   dom.window.document.dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Escape' }));
   assert.strictEqual(dom.window.document.querySelector('#lucid-reader-host'), null);
   assert.strictEqual(dom.window.document.body.style.display, 'block');
+}
+
+async function testReadingLevelRestoresOriginal() {
+  const { shadowRoots, outbound, dispatch } = loadContentScript(articleHtml);
+  dispatch({ type: 'TOGGLE_READER_VIEW' });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  const root = shadowRoots[0];
+  const level = root.querySelector('.lucid-reading-level');
+  level.value = 'simpler';
+  level.dispatchEvent(new root.ownerDocument.defaultView.Event('change'));
+  await new Promise(resolve => setTimeout(resolve, 25));
+  const request = outbound.find(message => message.type === 'SIMPLIFY_ARTICLE');
+  assert.strictEqual(request.readingLevel, 'simpler');
+  const chunk = request.chunks[0];
+  dispatch({ type: 'SIMPLIFICATION_PROGRESS', requestId: request.requestId, index: chunk.index, result: 'A rewritten paragraph.' });
+  const paragraph = root.querySelector(`.lucid-content p[data-lucid-index="${chunk.index}"]`);
+  assert.strictEqual(paragraph.textContent, 'A rewritten paragraph.');
+  dispatch({ type: 'SIMPLIFICATION_PROGRESS', requestId: request.requestId, done: true });
+  level.value = 'original';
+  level.dispatchEvent(new root.ownerDocument.defaultView.Event('change'));
+  assert.strictEqual(paragraph.textContent, chunk.text);
 }
 
 async function testSimplificationProgressAndCancellation() {
@@ -127,10 +151,12 @@ if (require.main === module) {
     .then(() => console.log('PASS: reader view renders and exits with Escape'))
     .then(testSimplificationProgressAndCancellation)
     .then(() => console.log('PASS: simplification progress and cancellation work'))
+    .then(testReadingLevelRestoresOriginal)
+    .then(() => console.log('PASS: reading level sends the right job and restores originals'))
     .then(testNotSimplifiableState)
     .then(() => console.log('PASS: not-simplifiable state renders and exits'))
     .then(() => console.log('All reader-view integration tests passed'))
     .catch(error => { console.error(error); process.exitCode = 1; });
 }
 
-module.exports = { testReaderViewRenders, testSimplificationProgressAndCancellation, testNotSimplifiableState };
+module.exports = { testReaderViewRenders, testSimplificationProgressAndCancellation, testReadingLevelRestoresOriginal, testNotSimplifiableState };
