@@ -13,7 +13,6 @@
   },
   "devDependencies": {
     "@mozilla/readability": "^0.6.0",
-    "jsdom": "^24.0.0"
     "jsdom": "^24.0.0",
     "mermaid": "^11.16.0"
   }

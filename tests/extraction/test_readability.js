@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { JSDOM } = require('jsdom');
 const ReadabilityModule = require('../../lib/readability');
 const Readability = ReadabilityModule.Readability || ReadabilityModule;
 
@@ -18,6 +19,7 @@ function testExtraction() {
     results.push({
       file,
       extracted: !!article,
+      length: article?.textContent?.length || 0,
       textLength: article?.textContent?.length || 0,
       contentLength: article?.content?.length || 0,
       title: article?.title?.slice(0, 60) || '(none)',

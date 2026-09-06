@@ -16,10 +16,11 @@ lucid/
 ├── manifest.json          # Extension manifest (MV3)
 ├── background.js          # Service worker — message router
 ├── offscreen.html         # Offscreen document for AI sessions
-├── offscreen.js           # AI session management (Gemini Nano)
+├── offscreen.js           # AI session adapter and download monitoring
 ├── content-script.js      # DOM extraction + reader view renderer
 ├── lib/
 │   ├── readability.js     # Generated Mozilla Readability.js bundle
+│   ├── entity-preservation.js # Shared model-output guardrail
 │   └── mermaid.min.js     # Mermaid.js placeholder (replace before Phase 4)
 ├── ui/
 │   ├── popup.html         # Popup UI
@@ -33,7 +34,8 @@ lucid/
 │   │   ├── test_readability.js
 │   │   └── fixtures/      # HTML snapshots for testing
 │   ├── simplification/
-│   │   └── test_entity_preservation.js
+│   │   ├── test_entity_preservation.js
+│   │   └── test_background_orchestration.js
 │   └── e2e/
 │       └── test_reader_view.js
 ├── icons/                 # Extension icons (placeholder)
@@ -46,13 +48,13 @@ lucid/
 ## Build Order (Phases)
 
 ### Phase 0 — Validation Spike
-**Before any product code is written**, empirically confirm:
+The validation branch established Readability behavior across 13 synthetic fixtures. Live AI measurements remain Chrome/device-specific:
 - Which built-in AI APIs (`Summarizer`, `Rewriter`, `LanguageModel`) are usable from an extension context in current Chrome stable
 - Whether origin trial tokens are required
 - Real per-paragraph latency of `Rewriter`/`LanguageModel` on CPU-only hardware
 - Readability.js confidence/length signals across 10+ varied real pages
 
-**Deliverable**: A short findings document (see `Phase-0-validation` branch).
+**Deliverable**: `PHASE-0-FINDINGS.md` exists on the `phase-0-validation` branch.
 
 ### Phase 1 — Structure-Only Reader View (MVP)
 - [x] Content script + Readability.js extraction
@@ -62,7 +64,7 @@ lucid/
 - [x] Exit button, Escape-key handling, and popup state synchronization
 - [x] Responsive styling, dark-mode support, and reduced-motion support
 - [x] DOM-level integration coverage for render, exit, and extraction gate
-- Must work on 30+ diverse real-world pages
+- [ ] Manual validation on 30+ diverse real-world pages
 
 ### Phase 2 — On-Device Content Simplification
 - [x] AI availability check flow (unavailable/downloadable/available)
@@ -72,6 +74,7 @@ lucid/
 - [x] Entity preservation check on all simplified output, with visible warnings
 - [x] On-device session adapter for the `ai.languageModel` and `LanguageModel` surfaces
 - [x] Sliding two-paragraph context window and cancellation on reader exit/navigation
+- [ ] Live Chrome validation across supported and unsupported Gemini Nano devices
 
 ### Phase 3 — Reading-Level Control + BYOK
 - Reading level mapped to Rewriter tone/params or Prompt API template
@@ -102,12 +105,12 @@ lucid/
 - **Gate structural simplification on Readability confidence** — show "not simplifiable" state for non-article pages.
 - **Never call a language model from the structural simplification pipeline.**
 
-## Open Questions (to be resolved in Phase 0)
+## Open Questions / Follow-up
 
-1. Do extensions get stable, token-free access to `Rewriter`/`Writer`/`Proofreader`, or only `Summarizer`/`LanguageModel`?
-2. Is an offscreen document still the recommended pattern for hosting long-lived AI sessions from an extension?
-3. What is real per-paragraph latency on CPU-only fallback hardware?
-4. What fraction of users actually meet Gemini Nano's hardware requirements?
+1. Confirm the exact Chrome channel and origin-trial requirements for the installed device. The Prompt API is the preferred path; Rewriter availability varies by Chrome rollout.
+2. Record real per-paragraph latency and model download duration on representative hardware.
+3. Confirm that session creation from the offscreen document preserves the required user-activation behavior.
+4. Decide whether to add token-level streaming after paragraph streaming is stable.
 
 ## Git Workflow
 
@@ -134,6 +137,10 @@ lucid/
 npm install
 npm test
 ```
+
+## End-of-day status — 2026-09-06
+
+Phase 1–3 implementation work is complete on the active development branch. The local suite passes, including the reader, entity, extraction, background orchestration, cache, context-window, cancellation, reading-level, and cloud-domain policy paths. Chrome manual testing reached the Gemini Nano model download step; it still needs a completed post-download rewrite and a BYOK smoke test using a non-sensitive allowlisted domain. Phase 4 (diagrams) is the next planned implementation phase.
 
 ---
 
