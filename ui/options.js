@@ -54,8 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasAI = avail.summarizer || avail.rewriter || avail.languageModel;
       aiIndicator.className = hasAI ? 'indicator on' : 'indicator off';
       const parts = [];
-      if (avail.languageModel) parts.push('LanguageModel');
-      if (avail.rewriter) parts.push('Rewriter');
+      if (avail.languageModel) parts.push(`LanguageModel (${avail.languageModelState || 'available'})`);
+      if (avail.rewriter) parts.push(`Rewriter (${avail.rewriterState || 'available'})`);
       if (avail.summarizer) parts.push('Summarizer');
       aiStatusText.textContent = parts.length
         ? `Available: ${parts.join(', ')}`

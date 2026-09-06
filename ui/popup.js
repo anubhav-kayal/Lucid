@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statusEl.textContent = 'Processing...';
 
     try {
-      const response = await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_READER_VIEW' });
+      const response = await sendToggleMessage(tab.id);
       if (response?.active) {
         toggleBtn.textContent = 'Exit Reader View';
         statusEl.textContent = response.notSimplifiable ? 'This page cannot be simplified' : 'Reader view active';
@@ -56,4 +56,21 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   updateUI();
+
+  async function sendToggleMessage(tabId) {
+    try {
+      return await chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_READER_VIEW' });
+    } catch (error) {
+      if (!error.message?.includes('Receiving end does not exist')) throw error;
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: [
+          'lib/readability.js',
+          'lib/entity-preservation.js',
+          'content-script.js',
+        ],
+      });
+      return chrome.tabs.sendMessage(tabId, { type: 'TOGGLE_READER_VIEW' });
+    }
+  }
 });
