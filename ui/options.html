@@ -59,6 +59,12 @@
     <p class="note">Your key is stored locally in chrome.storage.local. It is never sent anywhere except to the selected API when you explicitly simplify a page.</p>
     <label for="domain-allowlist">Domains enabled for cloud (one per line)</label>
     <textarea id="domain-allowlist" rows="4" style="width:100%;padding:8px;border:1px solid #ccc;border-radius:6px;font-size:14px;" placeholder="example.com&#10;blog.example.org"></textarea>
+    <p class="note">Use <code>*.example.com</code> to include subdomains. Cloud access remains off everywhere else.</p>
+    <label>
+      <input type="checkbox" id="sensitive-domain-confirmed" />
+      I understand that enabling a banking, health, mail, finance, medical, .gov, or .mil domain sends selected article text to my chosen cloud provider.
+    </label>
+    <p class="note">This confirmation is required before a sensitive domain can be added to the cloud allowlist.</p>
     <button id="save-options">Save Options</button>
     <p class="note" id="save-status"></p>
   </div>

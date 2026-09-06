@@ -22,6 +22,23 @@ document.addEventListener('DOMContentLoaded', () => {
     statusEl.textContent = `Page: ${tab.title?.slice(0, 40) || 'unknown'}`;
 
     try {
+      const config = await chrome.runtime.sendMessage({ type: 'GET_PROCESSING_CONFIG' });
+      if (config?.mode === 'cloud') {
+        modeBadge.className = 'badge cloud';
+        modeBadge.textContent = 'Cloud';
+        privacyNote.textContent = `Text may be sent to ${config.provider} for this domain`;
+      } else {
+        modeBadge.className = 'badge local';
+        modeBadge.textContent = 'On-device';
+        privacyNote.textContent = config?.reason || 'Processing stays on your device';
+      }
+    } catch {
+      modeBadge.className = 'badge local';
+      modeBadge.textContent = 'On-device';
+      privacyNote.textContent = 'Processing stays on your device';
+    }
+
+    try {
       const state = await chrome.tabs.sendMessage(tab.id, { type: 'GET_READER_STATE' });
       if (state?.active) {
         toggleBtn.textContent = 'Exit Reader View';

@@ -6,13 +6,14 @@ document.addEventListener('DOMContentLoaded', () => {
   const apiProvider = document.getElementById('api-provider');
   const apiKey = document.getElementById('api-key');
   const domainAllowlist = document.getElementById('domain-allowlist');
+  const sensitiveConfirmed = document.getElementById('sensitive-domain-confirmed');
   const saveBtn = document.getElementById('save-options');
   const saveStatus = document.getElementById('save-status');
   const aiIndicator = document.getElementById('ai-indicator');
   const aiStatusText = document.getElementById('ai-status-text');
 
   // Load saved settings
-  chrome.storage.local.get(['aiMode', 'apiProvider', 'apiKey', 'domainAllowlist'], (result) => {
+  chrome.storage.local.get(['aiMode', 'apiProvider', 'apiKey', 'domainAllowlist', 'sensitiveDomainOverrides'], (result) => {
     if (result.aiMode === 'cloud') {
       document.querySelector('input[value="cloud"]').checked = true;
       cloudSettings.style.display = 'block';
@@ -20,6 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (result.apiProvider) apiProvider.value = result.apiProvider;
     if (result.apiKey) apiKey.value = result.apiKey;
     if (result.domainAllowlist) domainAllowlist.value = result.domainAllowlist.join('\n');
+    sensitiveConfirmed.checked = Boolean(result.sensitiveDomainOverrides?.length);
   });
 
   // Toggle cloud settings
@@ -35,16 +37,28 @@ document.addEventListener('DOMContentLoaded', () => {
       .split('\n')
       .map((s) => s.trim())
       .filter(Boolean);
+    const sensitiveDomains = allowlist.filter(isSensitiveDomain);
+    if (sensitiveDomains.length && !sensitiveConfirmed.checked) {
+      saveStatus.textContent = 'Confirm the sensitive-domain warning before saving those domains.';
+      return;
+    }
     chrome.storage.local.set({
       aiMode: document.querySelector('input[name="ai-mode"]:checked').value,
       apiProvider: apiProvider.value,
       apiKey: apiKey.value,
       domainAllowlist: allowlist,
+      sensitiveDomainOverrides: sensitiveConfirmed.checked ? sensitiveDomains : [],
     }, () => {
       saveStatus.textContent = 'Settings saved.';
       setTimeout(() => { saveStatus.textContent = ''; }, 2000);
     });
   });
+
+  function isSensitiveDomain(domain) {
+    const host = domain.toLowerCase().replace(/^\*\./, '');
+    return host.endsWith('.gov') || host.endsWith('.mil')
+      || ['bank', 'health', 'mail', 'finance', 'medical'].some(part => host.includes(part));
+  }
 
   // Check AI availability
   async function checkAIAvailability() {
