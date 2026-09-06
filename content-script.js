@@ -8,6 +8,8 @@ let originalDocumentOverflow = null;
 let simplificationState = 'original';
 let simplificationRequestId = null;
 
+window.addEventListener('pagehide', cancelSimplification);
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
     case 'TOGGLE_READER_VIEW':
@@ -274,16 +276,18 @@ function renderSimplifiedParagraph(message) {
     const button = readerShadowRoot.querySelector('.lucid-simplify');
     if (button) { button.disabled = false; button.textContent = 'Try again'; }
     readerShadowRoot.querySelectorAll('.lucid-simplifying').forEach(element => element.classList.remove('lucid-simplifying'));
+    readerShadowRoot.querySelector('.lucid-download-progress')?.remove();
     return;
   }
   if (message.phase === 'download') {
     const container = readerShadowRoot.querySelector('.lucid-reader');
-    if (container) showReaderStatus(container, `Downloading on-device model: ${Math.round((message.loaded || 0) * 100)}%`);
+    if (container) showDownloadProgress(container, message.loaded || 0);
     return;
   }
   if (message.phase === 'ready') {
     const container = readerShadowRoot.querySelector('.lucid-reader');
     if (container) showReaderStatus(container, 'Model ready. Simplifying your article…');
+    readerShadowRoot.querySelector('.lucid-download-progress')?.remove();
     return;
   }
   const element = readerShadowRoot.querySelector(`.lucid-content p[data-lucid-index="${message.index}"]`);
@@ -298,6 +302,18 @@ function renderSimplifiedParagraph(message) {
   element.classList.remove('lucid-simplifying');
   element.classList.add(verification.passed ? 'lucid-simplified' : 'lucid-simplified-flagged');
   if (!verification.passed) element.title = `Check this paragraph: ${verification.missing.join(', ')}`;
+}
+
+function showDownloadProgress(container, loaded) {
+  let progress = container.querySelector('.lucid-download-progress');
+  if (!progress) {
+    progress = document.createElement('progress');
+    progress.className = 'lucid-download-progress';
+    progress.max = 1;
+    container.querySelector('.lucid-header').appendChild(progress);
+  }
+  progress.value = loaded;
+  showReaderStatus(container, `Downloading on-device model: ${Math.round(loaded * 100)}%`);
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

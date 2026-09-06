@@ -92,6 +92,14 @@
   font-size: 12px;
 }
 
+.lucid-download-progress {
+  display: block;
+  width: min(240px, 100%);
+  height: 5px;
+  margin-top: 10px;
+  accent-color: #4b8b63;
+}
+
 .lucid-content p {
   margin: 0 0 1.2em 0;
 }
