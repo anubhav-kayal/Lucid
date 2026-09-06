@@ -104,6 +104,7 @@ async function runArticleSimplification(message, job) {
 
   const savedChunks = { ...cached };
   const context = [];
+  let processed = 0;
   for (const chunk of message.chunks) {
     if (job.cancelled) break;
 
@@ -128,6 +129,8 @@ async function runArticleSimplification(message, job) {
       requestId: message.requestId,
       index: chunk.index,
       result: simplified,
+      processed: ++processed,
+      total: message.totalChunks || message.chunks.length,
     });
   }
 

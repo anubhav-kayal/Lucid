@@ -192,6 +192,11 @@ async function simplifyArticle(container, button) {
     .map((element, index) => ({ index, text: element.textContent.trim(), element }))
     .filter(item => item.text.length > 0);
   if (!paragraphs.length) return;
+  const chunks = paragraphs.filter(({ text }) => shouldSimplifyParagraph(text));
+  paragraphs.filter(item => !shouldSimplifyParagraph(item.text)).forEach(({ element }) => {
+    element.classList.remove('lucid-simplifying');
+    element.classList.add('lucid-simplified');
+  });
   paragraphs.forEach(({ index, element }) => {
     element.dataset.lucidIndex = String(index);
   });
@@ -200,7 +205,14 @@ async function simplifyArticle(container, button) {
   simplificationRequestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
   button.disabled = true;
   button.textContent = 'Preparing…';
-  paragraphs.forEach(({ element }) => element.classList.add('lucid-simplifying'));
+  chunks.forEach(({ element }) => element.classList.add('lucid-simplifying'));
+
+  if (!chunks.length) {
+    simplificationState = 'simplified';
+    button.disabled = false;
+    button.textContent = 'Simplified';
+    return;
+  }
 
   try {
     const contentText = paragraphs.map(item => item.text).join('\n\n');
@@ -209,7 +221,8 @@ async function simplifyArticle(container, button) {
       type: 'SIMPLIFY_ARTICLE',
       requestId: simplificationRequestId,
       cacheKey: `${location.href}|${contentHash}`,
-      chunks: paragraphs.map(({ index, text }) => ({ index, text })),
+      chunks: chunks.map(({ index, text }) => ({ index, text })),
+      totalChunks: chunks.length,
     });
     if (!response?.success) throw new Error(response?.error || 'Simplification is unavailable');
     button.textContent = 'Simplifying…';
@@ -217,7 +230,7 @@ async function simplifyArticle(container, button) {
     simplificationState = 'original';
     button.disabled = false;
     button.textContent = 'Simplify text';
-    paragraphs.forEach(({ element }) => element.classList.remove('lucid-simplifying'));
+    chunks.forEach(({ element }) => element.classList.remove('lucid-simplifying'));
     showReaderStatus(container, error.message);
   }
 }
@@ -226,7 +239,9 @@ async function updateSimplifyAvailability(container, button) {
   try {
     const response = await chrome.runtime.sendMessage({ type: 'CHECK_AI_AVAILABILITY' });
     const availability = response?.availability || {};
-    const state = availability.languageModelState || availability.rewriterState || 'unavailable';
+    const states = [availability.languageModelState, availability.rewriterState]
+      .filter(Boolean);
+    const state = states.find(value => value !== 'unavailable') || 'unavailable';
     if (state === 'unavailable') {
       button.disabled = true;
       button.textContent = 'AI unavailable';
@@ -242,6 +257,13 @@ async function updateSimplifyAvailability(container, button) {
     button.disabled = true;
     button.textContent = 'AI unavailable';
   }
+}
+
+function shouldSimplifyParagraph(text) {
+  const words = text.split(/\s+/).filter(Boolean);
+  if (text.length < 80 || words.length < 12) return false;
+  if (/^```|^\$\s|^\d+[.)]\s/.test(text)) return false;
+  return words.some(word => word.replace(/[^A-Za-z]/g, '').length >= 10);
 }
 
 function cancelSimplification() {
@@ -289,6 +311,10 @@ function renderSimplifiedParagraph(message) {
     if (container) showReaderStatus(container, 'Model ready. Simplifying your article…');
     readerShadowRoot.querySelector('.lucid-download-progress')?.remove();
     return;
+  }
+  if (message.processed && message.total) {
+    const container = readerShadowRoot.querySelector('.lucid-reader');
+    if (container) showReaderStatus(container, `Simplifying paragraph ${message.processed} of ${message.total}…`);
   }
   const element = readerShadowRoot.querySelector(`.lucid-content p[data-lucid-index="${message.index}"]`);
   if (!element) return;
