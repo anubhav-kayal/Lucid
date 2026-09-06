@@ -65,13 +65,13 @@ lucid/
 - Must work on 30+ diverse real-world pages
 
 ### Phase 2 — On-Device Content Simplification
-- AI availability check flow (unavailable/downloadable/available)
-- Model download UI gated on user gesture
+- [x] AI availability check flow (unavailable/downloadable/available)
+- [x] Model download UI gated on user gesture, with download progress
 - [x] Chunk paragraphs and stream simplified paragraphs into reader view
 - [x] Storage cache (chrome.storage.local, keyed by URL + content hash, LRU eviction)
 - [x] Entity preservation check on all simplified output, with visible warnings
 - [x] On-device session adapter for the `ai.languageModel` and `LanguageModel` surfaces
-- [ ] Sliding context window and model download progress UI
+- [x] Sliding two-paragraph context window and cancellation on reader exit/navigation
 
 ### Phase 3 — Reading-Level Control + BYOK
 - Reading level mapped to Rewriter tone/params or Prompt API template
