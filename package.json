@@ -4,6 +4,8 @@
   "description": "A reading-simplification Chrome extension",
   "private": true,
   "scripts": {
+    "build": "node scripts/build.js",
+    "postinstall": "npm run build",
     "test": "node tests/simplification/test_entity_preservation.js && node tests/extraction/test_readability.js",
     "test:entity": "node tests/simplification/test_entity_preservation.js",
     "test:extraction": "node tests/extraction/test_readability.js",
