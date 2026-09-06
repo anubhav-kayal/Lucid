@@ -64,11 +64,15 @@ async function handleInitSession(message, sendResponse) {
     if (languageModel && languageModelState !== 'unavailable') {
       aiSession = await languageModel.create({
         ...LANGUAGE_MODEL_OPTIONS,
+        systemPrompt: readingInstruction(message.readingLevel),
         monitor: createDownloadMonitor(message.requestId),
       });
       aiSessionKind = 'languageModel';
     } else if (rewriter && rewriterState !== 'unavailable') {
-      aiSession = await rewriter.create({ tone: 'simpler', monitor: createDownloadMonitor(message.requestId) });
+      aiSession = await rewriter.create({
+        tone: message.readingLevel === 'detailed' ? 'more-formal' : 'more-casual',
+        monitor: createDownloadMonitor(message.requestId),
+      });
       aiSessionKind = 'rewriter';
     } else {
       throw new Error('On-device AI is unavailable on this device.');
@@ -90,7 +94,7 @@ async function handleSimplifyChunk(message, sendResponse) {
     const context = Array.isArray(message.context) && message.context.length
       ? `Previous simplified context (do not repeat it):\n${message.context.join('\n\n')}\n\n`
       : '';
-    const prompt = `${context}Simplify this paragraph while preserving all entities and qualifiers:\n\n${message.text}`;
+    const prompt = `${context}${readingInstruction(message.readingLevel)} Preserve all entities and qualifiers.\n\nParagraph:\n${message.text}`;
     const result = aiSessionKind === 'languageModel'
       ? await aiSession.prompt(prompt)
       : await aiSession.rewrite(message.text);
@@ -98,6 +102,12 @@ async function handleSimplifyChunk(message, sendResponse) {
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
+}
+
+function readingInstruction(readingLevel) {
+  return readingLevel === 'detailed'
+    ? 'Rewrite for a curious reader and add only brief explanations directly supported by the paragraph.'
+    : 'Simplify this paragraph to approximately a grade 5–6 reading level.';
 }
 
 function createDownloadMonitor(requestId) {
