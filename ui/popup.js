@@ -20,6 +20,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     toggleBtn.disabled = false;
     statusEl.textContent = `Page: ${tab.title?.slice(0, 40) || 'unknown'}`;
+
+    try {
+      const state = await chrome.tabs.sendMessage(tab.id, { type: 'GET_READER_STATE' });
+      if (state?.active) {
+        toggleBtn.textContent = 'Exit Reader View';
+        statusEl.textContent = 'Reader view active';
+      }
+    } catch {
+      // Content scripts are unavailable on browser-internal pages.
+    }
   }
 
   toggleBtn.addEventListener('click', async () => {
