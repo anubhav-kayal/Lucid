@@ -45,6 +45,35 @@
   letter-spacing: .08em;
 }
 
+.lucid-reading-level {
+  border: 1px solid #cbd2c7;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #4c554c;
+  background: transparent;
+  font: inherit;
+  letter-spacing: .04em;
+}
+
+.lucid-processing-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #4b8b63;
+  letter-spacing: .04em;
+  text-transform: none;
+}
+
+.lucid-processing-indicator::before {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  content: '';
+}
+
+.lucid-processing-indicator.lucid-cloud { color: #ad6814; }
+
 .lucid-exit {
   margin-left: auto;
   border: 1px solid #cbd2c7;
