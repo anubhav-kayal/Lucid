@@ -4,6 +4,10 @@
 
 let aiSession = null;
 let aiSessionKind = null;
+const LANGUAGE_MODEL_OPTIONS = {
+  expectedInputs: [{ type: 'text', languages: ['en'] }],
+  expectedOutputs: [{ type: 'text', languages: ['en'] }],
+};
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -11,7 +15,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleAIAvailability(sendResponse);
       return true;
     case 'INIT_AI_SESSION':
-      handleInitSession(sendResponse);
+      handleInitSession(message, sendResponse);
       return true;
     case 'SIMPLIFY_CHUNK':
       handleSimplifyChunk(message, sendResponse);
@@ -32,10 +36,10 @@ function getRewriter() {
   return self.ai?.rewriter || self.Rewriter || null;
 }
 
-async function getAvailability(api) {
+async function getAvailability(api, options) {
   if (!api) return 'unavailable';
   if (typeof api.availability !== 'function') return 'available';
-  try { return await api.availability(); } catch { return 'unavailable'; }
+  try { return await api.availability(options); } catch { return 'unavailable'; }
 }
 
 async function handleAIAvailability(sendResponse) {
@@ -44,26 +48,27 @@ async function handleAIAvailability(sendResponse) {
   sendResponse({ availability: {
     languageModel: !!languageModel,
     rewriter: !!rewriter,
-    languageModelState: await getAvailability(languageModel),
+    languageModelState: await getAvailability(languageModel, LANGUAGE_MODEL_OPTIONS),
     rewriterState: await getAvailability(rewriter),
   }});
 }
 
-async function handleInitSession(sendResponse) {
+async function handleInitSession(message, sendResponse) {
   try {
     await handleDestroySession();
     const languageModel = getLanguageModel();
     const rewriter = getRewriter();
-    const languageModelState = await getAvailability(languageModel);
+    const languageModelState = await getAvailability(languageModel, LANGUAGE_MODEL_OPTIONS);
     const rewriterState = await getAvailability(rewriter);
 
     if (languageModel && languageModelState !== 'unavailable') {
       aiSession = await languageModel.create({
-        systemPrompt: 'Rewrite the paragraph in plain language. Preserve every fact, number, name, date, uncertainty, and qualifier. Do not add information. Return only the rewritten paragraph.',
+        ...LANGUAGE_MODEL_OPTIONS,
+        monitor: createDownloadMonitor(message.requestId),
       });
       aiSessionKind = 'languageModel';
     } else if (rewriter && rewriterState !== 'unavailable') {
-      aiSession = await rewriter.create({ tone: 'simpler' });
+      aiSession = await rewriter.create({ tone: 'simpler', monitor: createDownloadMonitor(message.requestId) });
       aiSessionKind = 'rewriter';
     } else {
       throw new Error('On-device AI is unavailable on this device.');
@@ -82,7 +87,10 @@ async function handleSimplifyChunk(message, sendResponse) {
     return;
   }
   try {
-    const prompt = `Simplify this paragraph while preserving all entities and qualifiers:\n\n${message.text}`;
+    const context = Array.isArray(message.context) && message.context.length
+      ? `Previous simplified context (do not repeat it):\n${message.context.join('\n\n')}\n\n`
+      : '';
+    const prompt = `${context}Simplify this paragraph while preserving all entities and qualifiers:\n\n${message.text}`;
     const result = aiSessionKind === 'languageModel'
       ? await aiSession.prompt(prompt)
       : await aiSession.rewrite(message.text);
@@ -90,6 +98,18 @@ async function handleSimplifyChunk(message, sendResponse) {
   } catch (error) {
     sendResponse({ success: false, error: error.message });
   }
+}
+
+function createDownloadMonitor(requestId) {
+  return monitor => {
+    monitor.addEventListener('downloadprogress', event => {
+      chrome.runtime.sendMessage({
+        type: 'AI_DOWNLOAD_PROGRESS',
+        requestId,
+        loaded: event.loaded,
+      }).catch(() => {});
+    });
+  };
 }
 
 function handleDestroySession(sendResponse) {
