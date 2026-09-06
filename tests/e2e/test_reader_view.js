@@ -32,6 +32,7 @@ function loadContentScript(sourceHtml) {
     return root;
   };
 
+  vm.runInContext(fs.readFileSync('lib/entity-preservation.js', 'utf8'), dom.getInternalVMContext());
   vm.runInContext(fs.readFileSync('content-script.js', 'utf8'), dom.getInternalVMContext());
   return { dom, shadowRoots, send: message => new Promise(resolve => listener(message, {}, resolve)) };
 }

@@ -1,12 +1,17 @@
-// Lucid offscreen document
-// Hosts long-lived AI sessions (Gemini Nano) that persist across service-worker sleep cycles.
+// Lucid offscreen document.
+// AI API names vary by Chrome channel, so the adapter supports both the
+// built-in `ai` namespace and the newer global LanguageModel surface.
 
 let aiSession = null;
+let aiSessionKind = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
+    case 'GET_AI_AVAILABILITY':
+      handleAIAvailability(sendResponse);
+      return true;
     case 'INIT_AI_SESSION':
-      handleInitSession(message, sendResponse);
+      handleInitSession(sendResponse);
       return true;
     case 'SIMPLIFY_CHUNK':
       handleSimplifyChunk(message, sendResponse);
@@ -15,45 +20,81 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       handleDestroySession(sendResponse);
       return true;
     default:
-      break;
+      return false;
   }
 });
 
-async function handleInitSession(message, sendResponse) {
+function getLanguageModel() {
+  return self.ai?.languageModel || self.LanguageModel || null;
+}
+
+function getRewriter() {
+  return self.ai?.rewriter || self.Rewriter || null;
+}
+
+async function getAvailability(api) {
+  if (!api) return 'unavailable';
+  if (typeof api.availability !== 'function') return 'available';
+  try { return await api.availability(); } catch { return 'unavailable'; }
+}
+
+async function handleAIAvailability(sendResponse) {
+  const languageModel = getLanguageModel();
+  const rewriter = getRewriter();
+  sendResponse({ availability: {
+    languageModel: !!languageModel,
+    rewriter: !!rewriter,
+    languageModelState: await getAvailability(languageModel),
+    rewriterState: await getAvailability(rewriter),
+  }});
+}
+
+async function handleInitSession(sendResponse) {
   try {
-    if (self.ai?.languageModel) {
-      aiSession = await self.ai.languageModel.create({
-        systemPrompt: 'You are a text simplification assistant. Rewrite the given paragraph in plainer language while preserving every fact, number, name, date, and qualifier. Do not add any information not present in the original.',
+    await handleDestroySession();
+    const languageModel = getLanguageModel();
+    const rewriter = getRewriter();
+    const languageModelState = await getAvailability(languageModel);
+    const rewriterState = await getAvailability(rewriter);
+
+    if (languageModel && languageModelState !== 'unavailable') {
+      aiSession = await languageModel.create({
+        systemPrompt: 'Rewrite the paragraph in plain language. Preserve every fact, number, name, date, uncertainty, and qualifier. Do not add information. Return only the rewritten paragraph.',
       });
-      sendResponse({ success: true });
-    } else if (self.ai?.rewriter) {
-      aiSession = await self.ai.rewriter.create({ tone: 'simpler' });
-      sendResponse({ success: true });
+      aiSessionKind = 'languageModel';
+    } else if (rewriter && rewriterState !== 'unavailable') {
+      aiSession = await rewriter.create({ tone: 'simpler' });
+      aiSessionKind = 'rewriter';
     } else {
-      sendResponse({ success: false, error: 'No AI API available' });
+      throw new Error('On-device AI is unavailable on this device.');
     }
-  } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: true, state: languageModelState !== 'unavailable' ? languageModelState : rewriterState });
+  } catch (error) {
+    aiSession = null;
+    aiSessionKind = null;
+    sendResponse({ success: false, error: error.message });
   }
 }
 
 async function handleSimplifyChunk(message, sendResponse) {
   if (!aiSession) {
-    sendResponse({ success: false, error: 'No active AI session' });
+    sendResponse({ success: false, error: 'No active AI session.' });
     return;
   }
   try {
-    const result = await aiSession.rewrite(message.text);
-    sendResponse({ success: true, result });
-  } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    const prompt = `Simplify this paragraph while preserving all entities and qualifiers:\n\n${message.text}`;
+    const result = aiSessionKind === 'languageModel'
+      ? await aiSession.prompt(prompt)
+      : await aiSession.rewrite(message.text);
+    sendResponse({ success: true, result: String(result || '').trim() });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
   }
 }
 
 function handleDestroySession(sendResponse) {
-  if (aiSession) {
-    aiSession.destroy();
-    aiSession = null;
-  }
-  sendResponse({ success: true });
+  if (aiSession?.destroy) aiSession.destroy();
+  aiSession = null;
+  aiSessionKind = null;
+  if (sendResponse) sendResponse({ success: true });
 }
