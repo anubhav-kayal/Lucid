@@ -1,6 +1,8 @@
 // Entity preservation tests
 // Verify that simplified output preserves numbers, names, dates, and qualifiers.
 
+const productionEntityCheck = require('../../lib/entity-preservation').checkPreservation;
+
 function extractEntities(text) {
   const numbers = [...text.matchAll(/\d+(?:[,.]\d+)*/g)].map(m => m[0]);
   const dates = [...text.matchAll(/\b\d{1,2}\/\d{1,2}\/\d{2,4}\b|\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+\d{1,2},?\s+\d{4}\b/g)].map(m => m[0]);
@@ -44,7 +46,8 @@ function testEntityPreservation() {
   let passed = 0;
   for (const tc of testCases) {
     const result = checkPreservation(tc.original, tc.simplified);
-    const ok = result.passed === tc.expect;
+    const productionResult = productionEntityCheck(tc.original, tc.simplified);
+    const ok = result.passed === tc.expect && productionResult.passed === tc.expect;
     console.log(`${ok ? 'PASS' : 'FAIL'}: ${tc.original.slice(0, 40)}...`);
     if (!ok) console.log(`  missing: ${result.missing.join(', ')}`);
     if (ok) passed++;
