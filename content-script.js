@@ -5,6 +5,8 @@ let readerViewActive = false;
 let readerShadowRoot = null;
 let originalBodyDisplay = null;
 let originalDocumentOverflow = null;
+let simplificationState = 'original';
+let simplificationRequestId = null;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -58,6 +60,7 @@ function toggleReaderView(sendResponse) {
 }
 
 function exitReaderView(sendResponse) {
+  cancelSimplification();
   if (readerShadowRoot) {
     readerShadowRoot.host.remove();
     readerShadowRoot = null;
@@ -91,7 +94,12 @@ function renderReaderView(article) {
   const mode = document.createElement('span');
   mode.className = 'lucid-mode';
   mode.textContent = 'Reader view';
-  utilityBar.append(wordmark, mode, createExitButton());
+  const simplifyButton = document.createElement('button');
+  simplifyButton.type = 'button';
+  simplifyButton.className = 'lucid-simplify';
+  simplifyButton.textContent = 'Simplify text';
+  simplifyButton.addEventListener('click', () => simplifyArticle(container, simplifyButton));
+  utilityBar.append(wordmark, mode, simplifyButton, createExitButton());
 
   const title = document.createElement('h1');
   title.className = 'lucid-title';
@@ -110,6 +118,7 @@ function renderReaderView(article) {
   content.innerHTML = article.content;
   container.append(header, content);
   shadow.appendChild(container);
+  updateSimplifyAvailability(container, simplifyButton);
 }
 
 function renderNotSimplifiable(message = 'This page is not an article yet.') {
@@ -174,3 +183,130 @@ function handleReaderKeydown(event) {
     exitReaderView();
   }
 }
+
+async function simplifyArticle(container, button) {
+  if (simplificationState === 'loading' || simplificationState === 'simplified') return;
+  const paragraphs = [...container.querySelectorAll('.lucid-content p')]
+    .map((element, index) => ({ index, text: element.textContent.trim(), element }))
+    .filter(item => item.text.length > 0);
+  if (!paragraphs.length) return;
+  paragraphs.forEach(({ index, element }) => {
+    element.dataset.lucidIndex = String(index);
+  });
+
+  simplificationState = 'loading';
+  simplificationRequestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+  button.disabled = true;
+  button.textContent = 'Preparing…';
+  paragraphs.forEach(({ element }) => element.classList.add('lucid-simplifying'));
+
+  try {
+    const contentText = paragraphs.map(item => item.text).join('\n\n');
+    const contentHash = await hashText(contentText);
+    const response = await chrome.runtime.sendMessage({
+      type: 'SIMPLIFY_ARTICLE',
+      requestId: simplificationRequestId,
+      cacheKey: `${location.href}|${contentHash}`,
+      chunks: paragraphs.map(({ index, text }) => ({ index, text })),
+    });
+    if (!response?.success) throw new Error(response?.error || 'Simplification is unavailable');
+    button.textContent = 'Simplifying…';
+  } catch (error) {
+    simplificationState = 'original';
+    button.disabled = false;
+    button.textContent = 'Simplify text';
+    paragraphs.forEach(({ element }) => element.classList.remove('lucid-simplifying'));
+    showReaderStatus(container, error.message);
+  }
+}
+
+async function updateSimplifyAvailability(container, button) {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'CHECK_AI_AVAILABILITY' });
+    const availability = response?.availability || {};
+    const state = availability.languageModelState || availability.rewriterState || 'unavailable';
+    if (state === 'unavailable') {
+      button.disabled = true;
+      button.textContent = 'AI unavailable';
+      button.title = 'On-device AI is not available in this browser or on this device.';
+    } else if (state === 'downloadable') {
+      button.textContent = 'Download & simplify';
+      showReaderStatus(container, 'The on-device model will download after you choose Simplify.');
+    } else if (state === 'downloading') {
+      button.textContent = 'Simplify text';
+      showReaderStatus(container, 'The on-device model is downloading.');
+    }
+  } catch {
+    button.disabled = true;
+    button.textContent = 'AI unavailable';
+  }
+}
+
+function cancelSimplification() {
+  if (simplificationState !== 'loading' || !simplificationRequestId) return;
+  chrome.runtime.sendMessage({ type: 'CANCEL_SIMPLIFICATION', requestId: simplificationRequestId }).catch(() => {});
+  simplificationState = 'original';
+  simplificationRequestId = null;
+}
+
+async function hashText(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function showReaderStatus(container, message) {
+  let status = container.querySelector('.lucid-status');
+  if (!status) {
+    status = document.createElement('p');
+    status.className = 'lucid-status';
+    container.querySelector('.lucid-header').appendChild(status);
+  }
+  status.textContent = message;
+}
+
+function renderSimplifiedParagraph(message) {
+  if (!readerShadowRoot || message.requestId !== simplificationRequestId) return;
+  if (message.error) {
+    const container = readerShadowRoot.querySelector('.lucid-reader');
+    if (container) showReaderStatus(container, message.error);
+    simplificationState = 'original';
+    const button = readerShadowRoot.querySelector('.lucid-simplify');
+    if (button) { button.disabled = false; button.textContent = 'Try again'; }
+    readerShadowRoot.querySelectorAll('.lucid-simplifying').forEach(element => element.classList.remove('lucid-simplifying'));
+    return;
+  }
+  if (message.phase === 'download') {
+    const container = readerShadowRoot.querySelector('.lucid-reader');
+    if (container) showReaderStatus(container, `Downloading on-device model: ${Math.round((message.loaded || 0) * 100)}%`);
+    return;
+  }
+  if (message.phase === 'ready') {
+    const container = readerShadowRoot.querySelector('.lucid-reader');
+    if (container) showReaderStatus(container, 'Model ready. Simplifying your article…');
+    return;
+  }
+  const element = readerShadowRoot.querySelector(`.lucid-content p[data-lucid-index="${message.index}"]`);
+  if (!element) return;
+
+  const original = element.dataset.lucidOriginal || element.textContent;
+  element.dataset.lucidOriginal = original;
+  const result = String(message.result || '').trim();
+  if (!result) return;
+  const verification = checkPreservation(original, result);
+  element.textContent = result;
+  element.classList.remove('lucid-simplifying');
+  element.classList.add(verification.passed ? 'lucid-simplified' : 'lucid-simplified-flagged');
+  if (!verification.passed) element.title = `Check this paragraph: ${verification.missing.join(', ')}`;
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'SIMPLIFICATION_PROGRESS') {
+    renderSimplifiedParagraph(message);
+    if (message.done && message.requestId === simplificationRequestId) {
+      simplificationState = message.error ? 'original' : 'simplified';
+      const button = readerShadowRoot?.querySelector('.lucid-simplify');
+      if (button) { button.disabled = false; button.textContent = 'Simplified'; }
+    }
+  }
+});
