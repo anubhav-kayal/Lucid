@@ -1,5 +1,6 @@
 node_modules/
 .DS_Store
 *.log
+npm-debug.log*
 .plan.md
 lib/readability.js
