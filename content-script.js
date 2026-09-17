@@ -8,6 +8,9 @@ let originalDocumentOverflow = null;
 let simplificationState = 'original';
 let simplificationRequestId = null;
 let processingConfig = { mode: 'local', cacheScope: 'local' };
+let diagramsRendered = false;
+let mermaidPromise = null;
+let previouslyFocusedElement = null;
 
 window.addEventListener('pagehide', cancelSimplification);
 
@@ -78,6 +81,8 @@ function exitReaderView(sendResponse) {
   }
   originalBodyDisplay = null;
   originalDocumentOverflow = null;
+  previouslyFocusedElement?.focus?.();
+  previouslyFocusedElement = null;
   if (sendResponse) sendResponse({ active: false });
 }
 
@@ -119,10 +124,17 @@ function renderReaderView(article) {
   const privacy = document.createElement('span');
   privacy.className = 'lucid-processing-indicator lucid-local';
   privacy.textContent = 'On-device';
-  utilityBar.append(wordmark, mode, privacy, readingLevel, simplifyButton, createExitButton());
+  const diagramButton = document.createElement('button');
+  diagramButton.type = 'button';
+  diagramButton.className = 'lucid-diagram-button';
+  diagramButton.textContent = 'Show diagrams';
+  diagramButton.setAttribute('aria-label', 'Generate diagrams for process, comparison, or timeline sections');
+  diagramButton.addEventListener('click', () => renderArticleDiagrams(container, diagramButton));
+  utilityBar.append(wordmark, mode, privacy, readingLevel, simplifyButton, diagramButton, createExitButton());
 
   const title = document.createElement('h1');
   title.className = 'lucid-title';
+  title.tabIndex = -1;
   title.textContent = article.title || 'Untitled article';
   header.append(utilityBar, title);
 
@@ -139,6 +151,7 @@ function renderReaderView(article) {
   container.append(header, content);
   content.querySelectorAll('p').forEach(element => { element.dataset.lucidOriginal = element.textContent; });
   shadow.appendChild(container);
+  title.focus();
   updateSimplifyAvailability(container, simplifyButton, privacy);
 }
 
@@ -167,6 +180,9 @@ function createReaderShell() {
   const host = document.createElement('div');
   host.id = 'lucid-reader-host';
   host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;overflow-y:auto;';
+  host.setAttribute('role', 'dialog');
+  host.setAttribute('aria-modal', 'true');
+  previouslyFocusedElement = document.activeElement;
   const shadow = host.attachShadow({ mode: 'closed' });
   readerShadowRoot = shadow;
 
@@ -198,10 +214,76 @@ function createExitButton() {
   return button;
 }
 
+async function renderArticleDiagrams(container, button) {
+  if (diagramsRendered) return;
+  const candidates = [...container.querySelectorAll('.lucid-content p, .lucid-content li')]
+    .map(element => ({ element, text: element.dataset.lucidOriginal || element.textContent }))
+    .filter(item => LucidDiagram?.generate(item.text));
+  if (!candidates.length) {
+    showReaderStatus(container, 'No process, comparison, or timeline section detected.');
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Rendering…';
+  try {
+    await loadMermaid();
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false });
+    for (const [index, candidate] of candidates.entries()) {
+      const source = LucidDiagram.generate(candidate.text);
+      if (!LucidDiagram.valid(source)) continue;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'lucid-diagram';
+      wrapper.setAttribute('role', 'img');
+      wrapper.setAttribute('aria-label', 'Diagram generated from the surrounding article text');
+      const target = document.createElement('div');
+      target.id = `lucid-diagram-${Date.now()}-${index}`;
+      wrapper.appendChild(target);
+      candidate.element.insertAdjacentElement('afterend', wrapper);
+      try {
+        const rendered = await mermaid.render(target.id, source);
+        target.innerHTML = rendered.svg;
+      } catch {
+        wrapper.remove();
+      }
+    }
+    diagramsRendered = true;
+    button.textContent = 'Diagrams shown';
+  } catch {
+    button.disabled = false;
+    button.textContent = 'Show diagrams';
+    showReaderStatus(container, 'Diagrams are unavailable in this browser.');
+  }
+}
+
+function loadMermaid() {
+  if (!mermaidPromise) {
+    mermaidPromise = import(chrome.runtime.getURL('lib/mermaid.min.js')).then(() => {
+      if (!globalThis.mermaid) throw new Error('Mermaid failed to load.');
+      return globalThis.mermaid;
+    });
+  }
+  return mermaidPromise;
+}
+
 function handleReaderKeydown(event) {
   if (event.key === 'Escape') {
     event.preventDefault();
     exitReaderView();
+    return;
+  }
+  if (event.key === 'Tab' && readerShadowRoot) {
+    const focusable = [...readerShadowRoot.querySelectorAll('button, select, a, [tabindex]:not([tabindex="-1"])')]
+      .filter(element => !element.disabled);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 }
 

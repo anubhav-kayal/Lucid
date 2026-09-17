@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveStatus = document.getElementById('save-status');
   const aiIndicator = document.getElementById('ai-indicator');
   const aiStatusText = document.getElementById('ai-status-text');
+  const cacheStatus = document.getElementById('cache-status');
+  const clearCache = document.getElementById('clear-cache');
 
   // Load saved settings
   chrome.storage.local.get(['aiMode', 'apiProvider', 'apiKey', 'domainAllowlist', 'sensitiveDomainOverrides'], (result) => {
@@ -81,4 +83,24 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   checkAIAvailability();
+
+  async function refreshCacheStats() {
+    try {
+      const stats = await chrome.runtime.sendMessage({ type: 'GET_STORAGE_STATS' });
+      const kb = Math.round((stats.bytes || 0) / 1024);
+      cacheStatus.textContent = `${stats.entries || 0} entries · ${kb} KB used of 10 MB`;
+    } catch {
+      cacheStatus.textContent = 'Cache usage unavailable';
+    }
+  }
+
+  clearCache.addEventListener('click', async () => {
+    clearCache.disabled = true;
+    const response = await chrome.runtime.sendMessage({ type: 'CLEAR_SIMPLIFICATION_CACHE' });
+    cacheStatus.textContent = response?.success ? 'Cache cleared.' : `Could not clear cache: ${response?.error || 'unknown error'}`;
+    clearCache.disabled = false;
+    refreshCacheStats();
+  });
+
+  refreshCacheStats();
 });
