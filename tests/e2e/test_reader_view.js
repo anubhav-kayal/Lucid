@@ -49,6 +49,7 @@ function loadContentScript(sourceHtml) {
   };
 
   vm.runInContext(fs.readFileSync('lib/entity-preservation.js', 'utf8'), dom.getInternalVMContext());
+  vm.runInContext(fs.readFileSync('lib/diagram.js', 'utf8'), dom.getInternalVMContext());
   vm.runInContext(fs.readFileSync('content-script.js', 'utf8'), dom.getInternalVMContext());
 
   function dispatch(message) {

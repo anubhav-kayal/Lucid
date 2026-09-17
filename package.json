@@ -6,10 +6,11 @@
   "scripts": {
     "build": "node scripts/build.js",
     "postinstall": "npm run build",
-    "test": "node tests/simplification/test_entity_preservation.js && node tests/simplification/test_background_orchestration.js && node tests/extraction/test_readability.js && node tests/e2e/test_reader_view.js",
+    "test": "node tests/simplification/test_entity_preservation.js && node tests/simplification/test_background_orchestration.js && node tests/extraction/test_readability.js && node tests/e2e/test_reader_view.js && node tests/diagrams/test_diagram.js",
     "test:entity": "node tests/simplification/test_entity_preservation.js",
     "test:extraction": "node tests/extraction/test_readability.js",
-    "test:e2e": "node tests/e2e/test_reader_view.js"
+    "test:e2e": "node tests/e2e/test_reader_view.js",
+    "test:diagram": "node tests/diagrams/test_diagram.js"
   },
   "devDependencies": {
     "@mozilla/readability": "^0.6.0",

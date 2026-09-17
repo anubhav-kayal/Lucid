@@ -74,6 +74,18 @@
 
 .lucid-processing-indicator.lucid-cloud { color: #ad6814; }
 
+.lucid-diagram-button {
+  border: 1px solid #cbd2c7;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #4c554c;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.lucid-diagram-button:hover { border-color: #4b8b63; color: #2f6947; }
+
 .lucid-exit {
   margin-left: auto;
   border: 1px solid #cbd2c7;

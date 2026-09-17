@@ -84,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         files: [
           'lib/readability.js',
           'lib/entity-preservation.js',
+          'lib/diagram.js',
           'content-script.js',
         ],
       });

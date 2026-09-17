@@ -4,7 +4,7 @@
 const OFFSCREEN_PATH = 'offscreen.html';
 const CACHE_KEY = 'simplificationCache';
 const MAX_CACHE_ENTRIES = 100;
-const MAX_CACHE_BYTES = 5 * 1024 * 1024;
+const MAX_CACHE_BYTES = 10 * 1024 * 1024;
 const activeJobs = new Map();
 let offscreenDocumentReady = false;
 
@@ -45,6 +45,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === 'GET_PROCESSING_CONFIG') {
     getProcessingConfig(sender.tab?.url).then(({ apiKey, ...config }) => sendResponse(config));
+    return true;
+  }
+  if (message.type === 'GET_STORAGE_STATS') {
+    getStorageStats().then(sendResponse).catch(error => sendResponse({ error: error.message }));
+    return true;
+  }
+  if (message.type === 'CLEAR_SIMPLIFICATION_CACHE') {
+    chrome.storage.local.remove(CACHE_KEY)
+      .then(() => sendResponse({ success: true }))
+      .catch(error => sendResponse({ success: false, error: error.message }));
     return true;
   }
   if (message.type === 'CANCEL_SIMPLIFICATION') {
@@ -233,7 +243,7 @@ async function simplifyWithCloud(config, text, context, readingLevel) {
     } catch (error) {
       lastError = error;
       if (attempt === 0 && (error.rateLimited || /empty response/i.test(error.message))) {
-        await new Promise(resolve => setTimeout(resolve, 600));
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
         continue;
       }
       break;
@@ -292,6 +302,16 @@ async function sendProgress(tabId, message) {
 async function readCache() {
   const result = await chrome.storage.local.get(CACHE_KEY);
   return result[CACHE_KEY] || {};
+}
+
+async function getStorageStats() {
+  const result = await chrome.storage.local.get(CACHE_KEY);
+  const cache = result[CACHE_KEY] || {};
+  return {
+    entries: Object.keys(cache).length,
+    bytes: JSON.stringify(cache).length,
+    limitBytes: 10 * 1024 * 1024,
+  };
 }
 
 async function writeCache(cacheKey, chunks) {

@@ -8,8 +8,13 @@ let originalDocumentOverflow = null;
 let simplificationState = 'original';
 let simplificationRequestId = null;
 let processingConfig = { mode: 'local', cacheScope: 'local' };
+let diagramsRendered = false;
+let mermaidPromise = null;
+let previouslyFocusedElement = null;
+let sourceMutationObserver = null;
 
 window.addEventListener('pagehide', cancelSimplification);
+startSourceObserver();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -78,6 +83,9 @@ function exitReaderView(sendResponse) {
   }
   originalBodyDisplay = null;
   originalDocumentOverflow = null;
+  previouslyFocusedElement?.focus?.();
+  previouslyFocusedElement = null;
+  startSourceObserver();
   if (sendResponse) sendResponse({ active: false });
 }
 
@@ -119,10 +127,17 @@ function renderReaderView(article) {
   const privacy = document.createElement('span');
   privacy.className = 'lucid-processing-indicator lucid-local';
   privacy.textContent = 'On-device';
-  utilityBar.append(wordmark, mode, privacy, readingLevel, simplifyButton, createExitButton());
+  const diagramButton = document.createElement('button');
+  diagramButton.type = 'button';
+  diagramButton.className = 'lucid-diagram-button';
+  diagramButton.textContent = 'Show diagrams';
+  diagramButton.setAttribute('aria-label', 'Generate diagrams for process, comparison, or timeline sections');
+  diagramButton.addEventListener('click', () => renderArticleDiagrams(container, diagramButton));
+  utilityBar.append(wordmark, mode, privacy, readingLevel, simplifyButton, diagramButton, createExitButton());
 
   const title = document.createElement('h1');
   title.className = 'lucid-title';
+  title.tabIndex = -1;
   title.textContent = article.title || 'Untitled article';
   header.append(utilityBar, title);
 
@@ -139,6 +154,7 @@ function renderReaderView(article) {
   container.append(header, content);
   content.querySelectorAll('p').forEach(element => { element.dataset.lucidOriginal = element.textContent; });
   shadow.appendChild(container);
+  title.focus();
   updateSimplifyAvailability(container, simplifyButton, privacy);
 }
 
@@ -167,6 +183,10 @@ function createReaderShell() {
   const host = document.createElement('div');
   host.id = 'lucid-reader-host';
   host.style.cssText = 'position:fixed;inset:0;z-index:2147483647;overflow-y:auto;';
+  host.setAttribute('role', 'dialog');
+  host.setAttribute('aria-modal', 'true');
+  previouslyFocusedElement = document.activeElement;
+  sourceMutationObserver?.disconnect();
   const shadow = host.attachShadow({ mode: 'closed' });
   readerShadowRoot = shadow;
 
@@ -188,6 +208,15 @@ function createReaderShell() {
   return shadow;
 }
 
+function startSourceObserver() {
+  if (!document.body || sourceMutationObserver) return;
+  sourceMutationObserver = new MutationObserver(() => {
+    // The reader is a frozen snapshot. Dynamic pages are re-extracted the next
+    // time the user opens Reader View, avoiding live DOM churn in the overlay.
+  });
+  sourceMutationObserver.observe(document.body, { childList: true, subtree: true });
+}
+
 function createExitButton() {
   const button = document.createElement('button');
   button.type = 'button';
@@ -198,10 +227,97 @@ function createExitButton() {
   return button;
 }
 
+async function renderArticleDiagrams(container, button) {
+  if (diagramsRendered) return;
+  const candidates = [...container.querySelectorAll('.lucid-content p, .lucid-content li')]
+    .map(element => ({ element, text: element.dataset.lucidOriginal || element.textContent }))
+    .filter(item => LucidDiagram?.generate(item.text));
+  if (!candidates.length) {
+    showReaderStatus(container, 'No process, comparison, or timeline section detected.');
+    return;
+  }
+  button.disabled = true;
+  button.textContent = 'Rendering…';
+  try {
+    await loadMermaid();
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false });
+    for (const [index, candidate] of candidates.entries()) {
+      const cacheKey = `diagram:${await hashText(candidate.text)}`;
+      const cached = await readDiagramCache(cacheKey);
+      const source = cached?.source || LucidDiagram.generate(candidate.text);
+      if (!LucidDiagram.valid(source)) continue;
+      const wrapper = document.createElement('div');
+      wrapper.className = 'lucid-diagram';
+      wrapper.setAttribute('role', 'img');
+      wrapper.setAttribute('aria-label', 'Diagram generated from the surrounding article text');
+      const target = document.createElement('div');
+      target.id = `lucid-diagram-${Date.now()}-${index}`;
+      wrapper.appendChild(target);
+      candidate.element.insertAdjacentElement('afterend', wrapper);
+      try {
+        const rendered = cached?.svg ? { svg: cached.svg } : await mermaid.render(target.id, source);
+        target.innerHTML = rendered.svg;
+        if (!cached) await writeDiagramCache(cacheKey, { source, svg: rendered.svg });
+      } catch {
+        wrapper.remove();
+      }
+    }
+    diagramsRendered = true;
+    button.textContent = 'Diagrams shown';
+  } catch {
+    button.disabled = false;
+    button.textContent = 'Show diagrams';
+    showReaderStatus(container, 'Diagrams are unavailable in this browser.');
+  }
+}
+
+async function readDiagramCache(key) {
+  try {
+    const result = await chrome.storage.local.get('diagramCache');
+    return result.diagramCache?.[key] || null;
+  } catch { return null; }
+}
+
+async function writeDiagramCache(key, value) {
+  try {
+    const result = await chrome.storage.local.get('diagramCache');
+    const cache = { ...(result.diagramCache || {}), [key]: { ...value, updatedAt: Date.now() } };
+    const entries = Object.entries(cache).sort(([, a], [, b]) => b.updatedAt - a.updatedAt).slice(0, 50);
+    await chrome.storage.local.set({ diagramCache: Object.fromEntries(entries) });
+  } catch {
+    // Diagram rendering remains useful when storage is unavailable.
+  }
+}
+
+function loadMermaid() {
+  if (!mermaidPromise) {
+    mermaidPromise = import(chrome.runtime.getURL('lib/mermaid.min.js')).then(() => {
+      if (!globalThis.mermaid) throw new Error('Mermaid failed to load.');
+      return globalThis.mermaid;
+    });
+  }
+  return mermaidPromise;
+}
+
 function handleReaderKeydown(event) {
   if (event.key === 'Escape') {
     event.preventDefault();
     exitReaderView();
+    return;
+  }
+  if (event.key === 'Tab' && readerShadowRoot) {
+    const focusable = [...readerShadowRoot.querySelectorAll('button, select, a, [tabindex]:not([tabindex="-1"])')]
+      .filter(element => !element.disabled);
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 }
 
