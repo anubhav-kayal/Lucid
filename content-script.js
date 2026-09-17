@@ -11,8 +11,10 @@ let processingConfig = { mode: 'local', cacheScope: 'local' };
 let diagramsRendered = false;
 let mermaidPromise = null;
 let previouslyFocusedElement = null;
+let sourceMutationObserver = null;
 
 window.addEventListener('pagehide', cancelSimplification);
+startSourceObserver();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   switch (message.type) {
@@ -83,6 +85,7 @@ function exitReaderView(sendResponse) {
   originalDocumentOverflow = null;
   previouslyFocusedElement?.focus?.();
   previouslyFocusedElement = null;
+  startSourceObserver();
   if (sendResponse) sendResponse({ active: false });
 }
 
@@ -183,6 +186,7 @@ function createReaderShell() {
   host.setAttribute('role', 'dialog');
   host.setAttribute('aria-modal', 'true');
   previouslyFocusedElement = document.activeElement;
+  sourceMutationObserver?.disconnect();
   const shadow = host.attachShadow({ mode: 'closed' });
   readerShadowRoot = shadow;
 
@@ -202,6 +206,15 @@ function createReaderShell() {
   styleLink.href = chrome.runtime.getURL('styles/reader-view.css');
   shadow.appendChild(styleLink);
   return shadow;
+}
+
+function startSourceObserver() {
+  if (!document.body || sourceMutationObserver) return;
+  sourceMutationObserver = new MutationObserver(() => {
+    // The reader is a frozen snapshot. Dynamic pages are re-extracted the next
+    // time the user opens Reader View, avoiding live DOM churn in the overlay.
+  });
+  sourceMutationObserver.observe(document.body, { childList: true, subtree: true });
 }
 
 function createExitButton() {
@@ -229,7 +242,9 @@ async function renderArticleDiagrams(container, button) {
     await loadMermaid();
     mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false });
     for (const [index, candidate] of candidates.entries()) {
-      const source = LucidDiagram.generate(candidate.text);
+      const cacheKey = `diagram:${await hashText(candidate.text)}`;
+      const cached = await readDiagramCache(cacheKey);
+      const source = cached?.source || LucidDiagram.generate(candidate.text);
       if (!LucidDiagram.valid(source)) continue;
       const wrapper = document.createElement('div');
       wrapper.className = 'lucid-diagram';
@@ -240,8 +255,9 @@ async function renderArticleDiagrams(container, button) {
       wrapper.appendChild(target);
       candidate.element.insertAdjacentElement('afterend', wrapper);
       try {
-        const rendered = await mermaid.render(target.id, source);
+        const rendered = cached?.svg ? { svg: cached.svg } : await mermaid.render(target.id, source);
         target.innerHTML = rendered.svg;
+        if (!cached) await writeDiagramCache(cacheKey, { source, svg: rendered.svg });
       } catch {
         wrapper.remove();
       }
@@ -252,6 +268,24 @@ async function renderArticleDiagrams(container, button) {
     button.disabled = false;
     button.textContent = 'Show diagrams';
     showReaderStatus(container, 'Diagrams are unavailable in this browser.');
+  }
+}
+
+async function readDiagramCache(key) {
+  try {
+    const result = await chrome.storage.local.get('diagramCache');
+    return result.diagramCache?.[key] || null;
+  } catch { return null; }
+}
+
+async function writeDiagramCache(key, value) {
+  try {
+    const result = await chrome.storage.local.get('diagramCache');
+    const cache = { ...(result.diagramCache || {}), [key]: { ...value, updatedAt: Date.now() } };
+    const entries = Object.entries(cache).sort(([, a], [, b]) => b.updatedAt - a.updatedAt).slice(0, 50);
+    await chrome.storage.local.set({ diagramCache: Object.fromEntries(entries) });
+  } catch {
+    // Diagram rendering remains useful when storage is unavailable.
   }
 }
 

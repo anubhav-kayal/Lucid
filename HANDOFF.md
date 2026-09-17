@@ -84,16 +84,15 @@ The validation branch established Readability behavior across 13 synthetic fixtu
 - Built-in exclusion list for sensitive categories (banking, health, mail)
 
 ### Phase 4 — Diagrams
-- Heuristic detection of diagram-worthy sections (steps, comparisons, chronologies)
-- Mermaid syntax generation via model
-- Render with bundled mermaid.js; silently omit on error
+- [x] Heuristic detection of process, comparison, and timeline sections
+- [x] Safe Mermaid syntax generation and validation
+- [x] Local Mermaid bundle and Shadow DOM rendering with silent failure fallback
 
 ### Phase 5 — Hardening & Store Submission
-- SPA re-render handling (MutationObserver + content diffing)
-- Storage quota/eviction policy finalized
-- Multilingual scope honestly documented
-- Privacy review + Chrome Web Store disclosure
-- Accessibility pass
+- [x] Frozen reader snapshots with source mutation observation
+- [x] Bounded cache and options-page cache statistics/clear control
+- [x] Privacy, error, accessibility, and release documentation
+- [ ] Manual Chrome regression and Chrome Web Store assets/submission
 
 ## Key Constraints (DO NOT VIOLATE)
 
@@ -140,7 +139,7 @@ npm test
 
 ## End-of-day status — 2026-09-06
 
-Phase 1–3 implementation work is complete on the active development branch. The local suite passes, including the reader, entity, extraction, background orchestration, cache, context-window, cancellation, reading-level, and cloud-domain policy paths. Chrome manual testing reached the Gemini Nano model download step; it still needs a completed post-download rewrite and a BYOK smoke test using a non-sensitive allowlisted domain. Phase 4 (diagrams) is the next planned implementation phase.
+Phases 1–5 implementation work is complete on the active development branch. The local suite passes, including reader, entity, extraction, orchestration, cache, context, cancellation, reading-level, cloud policy, accessibility, and diagram paths. Remaining work is the planned manual Chrome regression tomorrow, device-specific AI measurements, final store assets, and submission review.
 
 ---
 

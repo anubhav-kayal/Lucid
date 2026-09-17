@@ -4,7 +4,7 @@
 const OFFSCREEN_PATH = 'offscreen.html';
 const CACHE_KEY = 'simplificationCache';
 const MAX_CACHE_ENTRIES = 100;
-const MAX_CACHE_BYTES = 5 * 1024 * 1024;
+const MAX_CACHE_BYTES = 10 * 1024 * 1024;
 const activeJobs = new Map();
 let offscreenDocumentReady = false;
 
@@ -243,7 +243,7 @@ async function simplifyWithCloud(config, text, context, readingLevel) {
     } catch (error) {
       lastError = error;
       if (attempt === 0 && (error.rateLimited || /empty response/i.test(error.message))) {
-        await new Promise(resolve => setTimeout(resolve, 600));
+        await new Promise(resolve => setTimeout(resolve, 500 * (attempt + 1)));
         continue;
       }
       break;

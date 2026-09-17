@@ -21,6 +21,8 @@ Phases 1–3 are implemented on the active development branch.
 - Reader-level selection: **Simpler**, **Original**, and **More detailed**.
 - Optional BYOK cloud processing for Anthropic, OpenAI, or Google Gemini.
 - Per-domain cloud allowlist, a persistent cloud indicator, and sensitive-domain blocking until explicitly confirmed.
+- Local Mermaid diagram generation for process, comparison, and timeline sections.
+- Keyboard focus containment, frozen reader snapshots for dynamic pages, and cache management controls.
 
 The extension has not yet been validated across the full 30-page manual test set or every supported Chrome AI configuration.
 
@@ -92,8 +94,8 @@ For manual Chrome testing, open a long article, select **Open Reader View**, cho
 | 1 — Reader view | Implemented | Extraction gate, isolated reader UI, controls, styling, and integration tests. |
 | 2 — On-device simplification | Implemented | Availability states, download progress, streaming paragraphs, context, verification, cache, and cancellation. |
 | 3 — Reading level and BYOK | Implemented | Reading-level controls, optional cloud providers, privacy indicators, and sensitive-domain protections. |
-| 4 — Diagrams | Planned | Mermaid bundling, detection, generation, validation, and rendering. |
-| 5 — Hardening | Planned | SPA support, accessibility, storage finalization, privacy review, and store submission. |
+| 4 — Diagrams | Implemented | Local Mermaid bundling, detection, validation, rendering, and failure fallback. |
+| 5 — Hardening | Implementation complete | Runtime resilience, accessibility, cache controls, privacy documentation, and release checklist; manual Chrome/store work remains. |
 
 ## Privacy
 
