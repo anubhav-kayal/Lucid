@@ -3,6 +3,8 @@ const path = require('path');
 
 const src = path.join(__dirname, '..', 'node_modules', '@mozilla', 'readability', 'Readability.js');
 const dest = path.join(__dirname, '..', 'lib', 'readability.js');
+const mermaidSrc = path.join(__dirname, '..', 'node_modules', 'mermaid', 'dist', 'mermaid.min.js');
+const mermaidDest = path.join(__dirname, '..', 'lib', 'mermaid.min.js');
 
 let code = fs.readFileSync(src, 'utf8');
 
@@ -13,3 +15,5 @@ code = code.replace(
 
 fs.writeFileSync(dest, code);
 console.log('Built lib/readability.js from @mozilla/readability');
+fs.copyFileSync(mermaidSrc, mermaidDest);
+console.log('Bundled lib/mermaid.min.js from mermaid');
