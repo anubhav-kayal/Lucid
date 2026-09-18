@@ -23,10 +23,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case 'DESTROY_AI_SESSION':
       handleDestroySession(sendResponse);
       return true;
+    case 'RENDER_DIAGRAM_OFFSCREEN':
+      handleRenderDiagram(message, sendResponse);
+      return true;
     default:
       return false;
   }
 });
+
+async function handleRenderDiagram(message, sendResponse) {
+  try {
+    if (!self.mermaid) throw new Error('Mermaid is unavailable in the offscreen document.');
+    self.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false });
+    const rendered = await self.mermaid.render(message.id, message.source);
+    sendResponse({ success: true, svg: rendered.svg });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
+  }
+}
 
 function getLanguageModel() {
   return self.ai?.languageModel || self.LanguageModel || null;

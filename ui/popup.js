@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusEl = document.getElementById('status-message');
   const modeBadge = document.getElementById('mode-badge');
   const privacyNote = document.getElementById('privacy-note');
+  const optionsBtn = document.getElementById('open-options');
 
   async function getCurrentTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -71,6 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     toggleBtn.disabled = false;
   });
+
+  optionsBtn.addEventListener('click', () => chrome.runtime.openOptionsPage());
 
   updateUI();
 

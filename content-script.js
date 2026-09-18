@@ -9,7 +9,6 @@ let simplificationState = 'original';
 let simplificationRequestId = null;
 let processingConfig = { mode: 'local', cacheScope: 'local' };
 let diagramsRendered = false;
-let mermaidPromise = null;
 let previouslyFocusedElement = null;
 let sourceMutationObserver = null;
 
@@ -239,10 +238,8 @@ async function renderArticleDiagrams(container, button) {
   button.disabled = true;
   button.textContent = 'Rendering…';
   try {
-    await loadMermaid();
-    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', htmlLabels: false });
     for (const [index, candidate] of candidates.entries()) {
-      const cacheKey = `diagram:${await hashText(candidate.text)}`;
+      const cacheKey = `diagram:v2:${await hashText(candidate.text)}`;
       const cached = await readDiagramCache(cacheKey);
       const source = cached?.source || LucidDiagram.generate(candidate.text);
       if (!LucidDiagram.valid(source)) continue;
@@ -255,8 +252,11 @@ async function renderArticleDiagrams(container, button) {
       wrapper.appendChild(target);
       candidate.element.insertAdjacentElement('afterend', wrapper);
       try {
-        const rendered = cached?.svg ? { svg: cached.svg } : await mermaid.render(target.id, source);
-        target.innerHTML = rendered.svg;
+        const rendered = cached || await chrome.runtime.sendMessage({
+          type: 'RENDER_DIAGRAM', id: target.id, source,
+        });
+        if (!rendered?.success && !cached) throw new Error(rendered?.error || 'Mermaid render failed.');
+        target.innerHTML = cached?.svg || rendered.svg;
         if (!cached) await writeDiagramCache(cacheKey, { source, svg: rendered.svg });
       } catch {
         wrapper.remove();
@@ -287,16 +287,6 @@ async function writeDiagramCache(key, value) {
   } catch {
     // Diagram rendering remains useful when storage is unavailable.
   }
-}
-
-function loadMermaid() {
-  if (!mermaidPromise) {
-    mermaidPromise = import(chrome.runtime.getURL('lib/mermaid.min.js')).then(() => {
-      if (!globalThis.mermaid) throw new Error('Mermaid failed to load.');
-      return globalThis.mermaid;
-    });
-  }
-  return mermaidPromise;
 }
 
 function handleReaderKeydown(event) {
