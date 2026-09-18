@@ -33,6 +33,11 @@
   font-size: 11px;
   letter-spacing: .12em;
   text-transform: uppercase;
+  flex-wrap: wrap;
+  padding: 10px 12px;
+  border: 1px solid #d9ddd3;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 42%);
 }
 
 .lucid-wordmark {
@@ -53,6 +58,7 @@
   background: transparent;
   font: inherit;
   letter-spacing: .04em;
+  cursor: pointer;
 }
 
 .lucid-processing-indicator {
@@ -85,6 +91,29 @@
 }
 
 .lucid-diagram-button:hover { border-color: #4b8b63; color: #2f6947; }
+
+.lucid-simplify,
+.lucid-diagram-button,
+.lucid-reading-level,
+.lucid-exit { min-height: 34px; }
+
+.lucid-simplify {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 13px;
+  color: #f7f8f4;
+  background: #2f6947;
+  font: inherit;
+  font-weight: 700;
+  letter-spacing: .04em;
+  cursor: pointer;
+}
+
+.lucid-simplify:hover { background: #245439; }
+
+.lucid-simplify:focus-visible,
+.lucid-reading-level:focus-visible,
+.lucid-diagram-button:focus-visible { outline: 3px solid #a7d0ae; outline-offset: 2px; }
 
 .lucid-exit {
   margin-left: auto;
@@ -289,6 +318,9 @@
   .lucid-title {
     font-size: 30px;
   }
+  .lucid-utility-bar { gap: 7px; }
+  .lucid-mode { display: none; }
+  .lucid-exit { margin-left: 0; }
 }
 
 @media (prefers-color-scheme: dark) {
