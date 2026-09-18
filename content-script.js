@@ -239,7 +239,7 @@ async function renderArticleDiagrams(container, button) {
   button.textContent = 'Rendering…';
   try {
     for (const [index, candidate] of candidates.entries()) {
-      const cacheKey = `diagram:${await hashText(candidate.text)}`;
+      const cacheKey = `diagram:v2:${await hashText(candidate.text)}`;
       const cached = await readDiagramCache(cacheKey);
       const source = cached?.source || LucidDiagram.generate(candidate.text);
       if (!LucidDiagram.valid(source)) continue;
