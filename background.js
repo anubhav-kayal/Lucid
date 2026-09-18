@@ -47,6 +47,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     getProcessingConfig(sender.tab?.url).then(({ apiKey, ...config }) => sendResponse(config));
     return true;
   }
+  if (message.type === 'RENDER_DIAGRAM') {
+    renderDiagram(message, sendResponse);
+    return true;
+  }
   if (message.type === 'GET_STORAGE_STATS') {
     getStorageStats().then(sendResponse).catch(error => sendResponse({ error: error.message }));
     return true;
@@ -82,6 +86,20 @@ async function handleAIAvailabilityCheck(sendResponse) {
     sendResponse({ availability: response?.availability || {} });
   } catch (error) {
     sendResponse({ availability: {}, error: error.message });
+  }
+}
+
+async function renderDiagram(message, sendResponse) {
+  try {
+    await ensureOffscreenDocument();
+    const response = await chrome.runtime.sendMessage({
+      type: 'RENDER_DIAGRAM_OFFSCREEN',
+      id: message.id,
+      source: message.source,
+    });
+    sendResponse(response || { success: false, error: 'Mermaid returned no result.' });
+  } catch (error) {
+    sendResponse({ success: false, error: error.message });
   }
 }
 
