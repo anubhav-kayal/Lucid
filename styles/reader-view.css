@@ -336,7 +336,31 @@
   .lucid-byline,
   .lucid-mode,
   .lucid-not-simplifiable { color: #a6b0a4; }
-  .lucid-exit { border-color: #526052; color: #c1ccc0; }
+  .lucid-utility-bar { border-color: #415046; background: rgb(39 51 43 / 92%); box-shadow: 0 12px 28px rgb(0 0 0 / 18%); }
+  .lucid-wordmark { color: #9bd5a8; }
+  .lucid-mode { color: #b3beb4; }
+  .lucid-reading-level,
+  .lucid-diagram-button,
+  .lucid-exit { border-color: #5a695d; color: #d2dbd2; background: #27332b; }
+  .lucid-reading-level option { color: #20231f; background: #f7f8f4; }
+  .lucid-simplify { color: #142018; background: #a8d8b5; }
+  .lucid-simplify:hover { background: #c0e7c7; }
+  .lucid-diagram-button:hover,
+  .lucid-exit:hover { border-color: #a8d8b5; color: #e5f3e7; background: #314238; }
+  .lucid-processing-indicator.lucid-local { color: #a8d8b5; }
+  .lucid-processing-indicator.lucid-cloud { color: #f2bd72; }
+  .lucid-status { color: #f2bd72; }
+  .lucid-content { color: #e5e9e1; }
+  .lucid-content a { color: #9bc7ff; }
+  .lucid-content blockquote { border-color: #536257; color: #c2cbc1; }
+  .lucid-content pre,
+  .lucid-content code { background: #263229; color: #e5e9e1; }
+  .lucid-content h2,
+  .lucid-content h3,
+  .lucid-content h4 { color: #f0f3ed; }
+  .lucid-simplified { border-color: #7fc48e; }
+  .lucid-simplifying { border-color: #536257; }
+  .lucid-simplified-flagged { border-color: #f2bd72; }
   .lucid-exit:hover { background: #25372a; color: #b4e0b9; }
   .lucid-empty-card { border-color: #354138; box-shadow: 0 18px 50px rgb(0 0 0 / 24%); }
 }
