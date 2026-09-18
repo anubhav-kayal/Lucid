@@ -10,6 +10,8 @@ assert.strictEqual(diagrams.typeFor(timelineText), 'timeline');
 assert.strictEqual(diagrams.typeFor(comparisonText), 'comparison');
 assert.ok(diagrams.valid(diagrams.generate(processText)));
 assert.ok(diagrams.valid(diagrams.generate(timelineText)));
+assert.deepStrictEqual(diagrams.timelineEvents(timelineText).map(event => event.year), ['2019', '2020', '2021']);
+assert.ok(diagrams.generate(`${timelineText} ${'In 2022 the service grew rapidly. '.repeat(12)}`).split('\n').length <= 10);
 assert.ok(diagrams.parts(processText).length >= 3);
 assert.strictEqual(diagrams.generate('A short sentence.'), null);
 console.log('PASS: diagram detection, generation, and validation');
